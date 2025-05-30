@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { compile, decompile, encrypt, decrypt } from '@/lib/codecloak';
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeftRight, Code, LockKeyhole, UnlockKeyhole, Shuffle, Zap } from 'lucide-react';
+import { ArrowLeftRight, Code, LockKeyhole, UnlockKeyhole, Shuffle } from 'lucide-react';
 
 export default function HomePage() {
   const [customHtml, setCustomHtml] = useState('');
@@ -56,23 +56,15 @@ export default function HomePage() {
       return;
     }
     const result = decrypt(encryptedText);
-    setCustomHtml(result); // El texto desencriptado vuelve al área de HTML personalizado
+    setCustomHtml(result);
     toast({ title: "Éxito", description: "Texto desencriptado a HTML Personalizado." });
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 bg-background">
-      <header className="mb-8 text-center">
-        <h1 className="text-5xl font-bold text-primary flex items-center justify-center">
-          <Zap className="w-12 h-12 mr-3 text-accent" />
-          Codecloak
-        </h1>
-        <p className="text-muted-foreground mt-2 text-lg">
-          Transforma, asegura y gestiona tus fragmentos de código con facilidad.
-        </p>
-      </header>
+      {/* El header ha sido eliminado según la solicitud */}
 
-      <main className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6">
+      <main className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6 mt-8"> {/* Añadido margen superior para compensar la ausencia del header */}
         {/* Columna Izquierda: Entrada de HTML Personalizado y sus transformaciones directas */}
         <div className="flex flex-col gap-6">
           <Card className="shadow-xl">
