@@ -1,170 +1,135 @@
-
-// Helper function to get line and column
 function getLineAndColumn(text: string, index: number): { line: number, column: number } {
-    const lines = text.substring(0, index).split('\n');
-    const line = lines.length;
-    const column = lines[lines.length - 1].length + 1;
-    return { line, column };
+  const lines = text.substring(0, index).split('\n');
+  const line = lines.length;
+  const column = lines[lines.length - 1].length + 1;
+  return { line, column };
 }
 
 interface TagInfo {
-  name: string;
-  line: number;
-  column: number;
+name: string;
+line: number;
+column: number;
 }
 
 export function compile(customHtml: string): { result: string | null; error: string | null } {
-  const tagStack: TagInfo[] = [];
-  let processedHtml = "";
-  let currentIndex = 0;
+const tagStack: TagInfo[] = [];
+let processedHtml = "";
+let currentIndex = 0;
 
-  // Regex for tags ending with /$, e.g., #tag attr="val" /$
-  // Attribute part ([^$]*?) non-greedily matches anything not a $
-  const openTagWithSlashEndRegex = /^#([a-zA-Z0-9_:-]+)([^$]*?)(\s*\/\s*)\$$/;
-  // Regex for tags ending with just $, e.g., #tag attr="val"$
-  const openTagWithDollarEndRegex = /^#([a-zA-Z0-9_:-]+)([^$]*?)\$$/;
+const openTagWithSlashEndRegex = /^#([a-zA-Z0-9_:-]+)([^$]*?)\/\s*\$/;
+const openTagWithDollarEndRegex = /^#([a-zA-Z0-9_:-]+)([^$]*?)\$/;
+const closeTagRegex = /^#\/([a-zA-Z0-9_:-]+)\$/;
 
+try {
+  while (currentIndex < customHtml.length) {
+    const rawRemaining = customHtml.substring(currentIndex);
+    const trimmed = rawRemaining.trimStart();
+    const skipLength = rawRemaining.length - trimmed.length;
+    currentIndex += skipLength;
 
-  try {
-    while(currentIndex < customHtml.length) {
-      const currentPos = getLineAndColumn(customHtml, currentIndex);
-      const remainingCustomHtml = customHtml.substring(currentIndex);
+    const remainingCustomHtml = customHtml.substring(currentIndex);
+    const currentPos = getLineAndColumn(customHtml, currentIndex);
 
-      let openTagMatch: RegExpMatchArray | null = null;
-      let isSlashEnding = false;
-      let attributesCapture: string | undefined = undefined;
-      let tagName: string | undefined = undefined;
-      let fullMatchLength: number = 0;
-      let matchedSlashPortion: string | undefined = undefined;
+    let match: RegExpMatchArray | null = null;
 
+    // Self-closing tag
+    if ((match = remainingCustomHtml.match(openTagWithSlashEndRegex))) {
+      const [full, tagName, attrs] = match;
+      const attributes = attrs.trim();
 
-      // First, try matching the pattern for tags ending with /$
-      let tempMatch = remainingCustomHtml.match(openTagWithSlashEndRegex);
-      if (tempMatch) {
-        openTagMatch = tempMatch;
-        isSlashEnding = true;
-        tagName = openTagMatch[1];
-        attributesCapture = openTagMatch[2]; // Raw attributes, possibly with leading/trailing spaces if not captured by slash
-        matchedSlashPortion = openTagMatch[3]; 
-        fullMatchLength = openTagMatch[0].length;
-      } else {
-        // If not, try matching the pattern for tags ending with just $
-        tempMatch = remainingCustomHtml.match(openTagWithDollarEndRegex);
-        if (tempMatch) {
-          openTagMatch = tempMatch;
-          isSlashEnding = false;
-          tagName = tempMatch[1];
-          attributesCapture = tempMatch[2]; // Raw attributes
-          // matchedSlashPortion remains undefined
-          fullMatchLength = tempMatch[0].length;
-        }
+      // Validación de atributos con comillas dobles
+      if (attributes.includes("'")) {
+        const errorPos = attributes.indexOf("'");
+        return {
+          result: null,
+          error: `(Línea ${currentPos.line}, Columna ${currentPos.column + errorPos}): Error: Atributo con comillas simples. Usa comillas dobles.`
+        };
       }
-      
-      const closeTagMatch = remainingCustomHtml.match(/^#\/([a-zA-Z0-9_:-]+)\$/);
 
-      if (openTagMatch && tagName && attributesCapture !== undefined) {
-        const attributesString = (attributesCapture || "").trim();
-
-        if (isSlashEnding && matchedSlashPortion) {
-            // Calculate position of the erroneous slash
-            let slashErrorColumn = currentPos.column + tagName.length + 1; // After #tag_name
-            if (attributesCapture) { 
-                slashErrorColumn += attributesCapture.indexOf(attributesString); // to account for original spacing
-                slashErrorColumn += attributesString.length;
-            }
-            // Ensure matchedSlashPortion is not just whitespace if attributes are empty
-            const slashIndexInPortion = matchedSlashPortion.indexOf('/');
-            if (slashIndexInPortion !== -1) {
-                 slashErrorColumn += slashIndexInPortion;
-            } else {
-                 slashErrorColumn += matchedSlashPortion.length; // Point to end of spaces if slash not found (edge case)
-            }
-
-            return { result: null, error: `(Línea ${currentPos.line}, Columna ${slashErrorColumn}): Error de sintaxis: Carácter '/' inesperado antes del cierre '$' de la etiqueta de apertura '${tagName}'. La sintaxis personalizada no usa '/' para auto-cierre en etiquetas de apertura.` };
-        }
-        
-        if (attributesString) { 
-            if (attributesString.includes("='")) {
-                const errorIndexInAttributes = attributesString.indexOf("='");
-                return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Se encontraron comillas simples. Utiliza comillas dobles para los valores de atributos (ej: nombre="valor") en '${attributesString.substring(0, Math.min(attributesString.length, 30))}...'.` };
-            }
-            
-            const attributeSegments = attributesString.split(/\s+(?=(?:(?:[^"]*"){2})*[^"]*$)/).filter(s => s.trim() !== '');
-
-            for (const segment of attributeSegments) {
-                const attributeNameMatch = segment.match(/^([a-zA-Z0-9_:-]+)/);
-                if (!attributeNameMatch) {
-                    const errorIndexInAttributes = attributesString.indexOf(segment);
-                    return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Atributo mal formado cerca de '${segment.substring(0, Math.min(segment.length, 20))}...' en '${attributesString.substring(0, Math.min(attributesString.length, 30))}...'.`};
-                }
-                const attrName = attributeNameMatch[0];
-
-                if (segment.includes("=")) { 
-                    const valuePartMatch = segment.match(/=(.*)/);
-                    if (!valuePartMatch || !valuePartMatch[1] || !valuePartMatch[1].startsWith('"') || !valuePartMatch[1].endsWith('"')) {
-                        const errorIndexInSegment = segment.indexOf('=') +1;
-                        const errorIndexInAttributes = attributesString.indexOf(segment) + errorIndexInSegment;
-                        return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: El valor para '${attrName}' debe estar entre comillas dobles (ej: ${attrName}="valor") en '${segment.substring(0, Math.min(segment.length, 30))}...'.` };
-                    }
-                    if (valuePartMatch[1].length > 1 && valuePartMatch[1].substring(1, valuePartMatch[1].length - 1).includes('"')) {
-                         const errorIndexInSegment = segment.indexOf('=') + 1 + valuePartMatch[1].substring(1).indexOf('"') + 1;
-                         const errorIndexInAttributes = attributesString.indexOf(segment) + errorIndexInSegment;
-                         return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Comillas dobles no escapadas dentro del valor del atributo '${attrName}' en '${segment.substring(0, Math.min(segment.length, 30))}...'.` };
-                    }
-                } else { 
-                    if (attrName !== segment) { 
-                        const errorIndexInAttributes = attributesString.indexOf(segment) + attrName.length;
-                         return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Caracteres inesperados después del nombre de atributo booleano '${attrName}' en '${segment.substring(0, Math.min(segment.length, 30))}...'.`};
-                    }
-                }
-            }
-        }
-
-        processedHtml += `<${tagName}${attributesString.length > 0 ? ' ' + attributesString : ''}>`;
-        tagStack.push({ name: tagName, line: currentPos.line, column: currentPos.column });
-        currentIndex += fullMatchLength;
-      } else if (closeTagMatch) {
-        const [fullMatch, tagNameFromClose] = closeTagMatch;
-        if (tagStack.length === 0) {
-          return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error de compilación: Etiqueta de cierre '${fullMatch}' inesperada. No hay etiquetas abiertas.` };
-        }
-        const openTag = tagStack[tagStack.length - 1];
-        if (openTag.name !== tagNameFromClose) {
-          return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error de compilación: Etiqueta de cierre no coincidente '${fullMatch}'. Se esperaba el cierre para '#${openTag.name}$' abierta en (Línea ${openTag.line}, Columna ${openTag.column}).` };
-        }
-        tagStack.pop();
-        processedHtml += `</${tagNameFromClose}>`;
-        currentIndex += fullMatch.length;
-      } else {
-        if (customHtml[currentIndex] === '#') {
-            const potentialTagPortion = customHtml.substring(currentIndex, currentIndex + Math.min(30, customHtml.length - currentIndex));
-            const potentialOpenTagStart = remainingCustomHtml.match(/^#([a-zA-Z0-9_:-]+)/);
-            const potentialCloseTagStart = remainingCustomHtml.match(/^#\/([a-zA-Z0-9_:-]+)/);
-            
-            if (potentialOpenTagStart && !remainingCustomHtml.substring(potentialOpenTagStart[0].length).trim().startsWith('$') && !openTagMatch) { 
-                 return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error de sintaxis: Etiqueta de apertura mal formada. Posiblemente falta '$' al final o los atributos son incorrectos en '${potentialTagPortion}...'.` };
-            }
-            if (potentialCloseTagStart && !remainingCustomHtml.substring(potentialCloseTagStart[0].length).trim().startsWith('$') && !closeTagMatch) {
-                 return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error de sintaxis: Etiqueta de cierre mal formada. Posiblemente falta '$' al final de '${potentialTagPortion}...'.` };
-            }
-            if (remainingCustomHtml.startsWith('#') && !potentialOpenTagStart && !potentialCloseTagStart) {
-                 return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error de sintaxis: Carácter '#' inválido o nombre de etiqueta no válido comenzando con '${potentialTagPortion}...'. Los nombres de etiqueta solo pueden contener letras, números, '_', ':' o '-'.` };
-            }
-        }
-        processedHtml += customHtml[currentIndex];
-        currentIndex++;
+      const attrPattern = /^([a-zA-Z0-9_:-]+(\s*=\s*"[^"]*")?\s*)*$/;
+      if (attributes && !attrPattern.test(attributes)) {
+        return {
+          result: null,
+          error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error en atributos de '${tagName}'.`
+        };
       }
+
+      processedHtml += `<${tagName}${attributes ? ' ' + attributes : ''} />`;
+      currentIndex += full.length;
+      continue;
     }
 
-    if (tagStack.length > 0) {
-      const firstUnclosedTag = tagStack[0];
-      const uniqueUnclosedTagNames = [...new Set(tagStack.map(t => t.name))];
-      return { result: null, error: `Error de compilación: Hay etiquetas sin cerrar. La primera es '#${firstUnclosedTag.name}$' abierta en (Línea ${firstUnclosedTag.line}, Columna ${firstUnclosedTag.column}). Total de etiquetas sin cerrar: ${tagStack.length} (Tipos: #${uniqueUnclosedTagNames.join(', #')}).` };
-    }
-    return { result: processedHtml, error: null };
+    // Opening tag
+    if ((match = remainingCustomHtml.match(openTagWithDollarEndRegex))) {
+      const [full, tagName, attrs] = match;
+      const attributes = attrs.trim();
 
-  } catch (e: any) {
-    const errorPos = getLineAndColumn(customHtml, currentIndex);
-    return { result: null, error: `(Línea ${errorPos.line}, Columna ${errorPos.column}): Error de compilación inesperado: ${e.message}` };
+      if (attributes.includes("'")) {
+        const errorPos = attributes.indexOf("'");
+        return {
+          result: null,
+          error: `(Línea ${currentPos.line}, Columna ${currentPos.column + errorPos}): Error: Atributo con comillas simples. Usa comillas dobles.`
+        };
+      }
+
+      const attrPattern = /^([a-zA-Z0-9_:-]+(\s*=\s*"[^"]*")?\s*)*$/;
+      if (attributes && !attrPattern.test(attributes)) {
+        return {
+          result: null,
+          error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error en atributos de '${tagName}'.`
+        };
+      }
+
+      processedHtml += `<${tagName}${attributes ? ' ' + attributes : ''}>`;
+      tagStack.push({ name: tagName, line: currentPos.line, column: currentPos.column });
+      currentIndex += full.length;
+      continue;
+    }
+
+    // Closing tag
+    if ((match = remainingCustomHtml.match(closeTagRegex))) {
+      const [full, tagName] = match;
+      if (tagStack.length === 0) {
+        return {
+          result: null,
+          error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error: Etiqueta de cierre inesperada '#/${tagName}$'. No hay etiquetas abiertas.`
+        };
+      }
+
+      const last = tagStack[tagStack.length - 1];
+      if (last.name !== tagName) {
+        return {
+          result: null,
+          error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error: Cierre incorrecto de '#/${tagName}$'. Se esperaba '#/${last.name}$'.`
+        };
+      }
+
+      tagStack.pop();
+      processedHtml += `</${tagName}>`;
+      currentIndex += full.length;
+      continue;
+    }
+
+    // Si no es etiqueta, se agrega como texto plano
+    processedHtml += customHtml[currentIndex];
+    currentIndex++;
   }
+
+  if (tagStack.length > 0) {
+    const first = tagStack[0];
+    return {
+      result: null,
+      error: `Error: Etiqueta sin cerrar '#${first.name}$' desde (Línea ${first.line}, Columna ${first.column}).`
+    };
+  }
+
+  return { result: processedHtml, error: null };
+
+} catch (e: any) {
+  const pos = getLineAndColumn(customHtml, currentIndex);
+  return {
+    result: null,
+    error: `(Línea ${pos.line}, Columna ${pos.column}): Error inesperado: ${e.message}`
+  };
+}
 }
