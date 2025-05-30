@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { compile, decompile, encrypt, decrypt } from '@/lib';
+import type { ErrorEntry, SymbolEntry } from '@/lib/codecloak/parser'; // Asegúrate que la ruta sea correcta
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeftRight, Code, LockKeyhole, UnlockKeyhole, Shuffle } from 'lucide-react';
 
@@ -13,6 +14,9 @@ export default function HomePage() {
   const [customHtml, setCustomHtml] = useState('');
   const [standardHtml, setStandardHtml] = useState('');
   const [encryptedText, setEncryptedText] = useState('');
+  // Para el futuro, si quieres mostrar las tablas:
+  // const [symbolTable, setSymbolTable] = useState<SymbolEntry[]>([]);
+  // const [errorTable, setErrorTable] = useState<ErrorEntry[]>([]);
   const { toast } = useToast();
 
   const handleCompile = () => {
@@ -20,13 +24,28 @@ export default function HomePage() {
       toast({ title: "Entrada Faltante", description: "Por favor, ingresa HTML personalizado para compilar.", variant: "destructive" });
       return;
     }
-    const { result, error } = compile(customHtml);
-    if (error) {
-      toast({ title: "Error de Compilación", description: error, variant: "destructive" });
-      setStandardHtml('');
-    } else if (result !== null) {
-      setStandardHtml(result);
+    // La función compile ahora devuelve un objeto { result, errors, symbolTable }
+    const compileResponse = compile(customHtml);
+
+    // setSymbolTable(compileResponse.symbolTable); // Opcional: guardar tabla de símbolos
+    // setErrorTable(compileResponse.errors); // Opcional: guardar tabla de errores
+
+    if (compileResponse.errors.length > 0) {
+      // Si hay errores, mostrar el primero (o podrías iterar/formatear todos)
+      const firstError = compileResponse.errors[0];
+      toast({
+        title: "Error de Compilación",
+        description: `Línea ${firstError.linea}, Columna ${firstError.columna}: ${firstError.descripcion}`,
+        variant: "destructive"
+      });
+      setStandardHtml(''); // Limpiar salida si hay errores
+    } else if (compileResponse.result !== null) {
+      setStandardHtml(compileResponse.result);
       toast({ title: "Éxito", description: "HTML personalizado compilado a HTML Estándar." });
+    } else {
+      // Caso inesperado, result es null pero no hay errores.
+       toast({ title: "Error Inesperado", description: "Ocurrió un problema durante la compilación.", variant: "destructive" });
+       setStandardHtml('');
     }
   };
 
@@ -56,7 +75,7 @@ export default function HomePage() {
       return;
     }
     const result = decrypt(encryptedText);
-    setCustomHtml(result);
+    setCustomHtml(result); // Actualizar el área de HTML personalizado con el texto desencriptado
     toast({ title: "Éxito", description: "Texto desencriptado a HTML Personalizado." });
   };
 
@@ -142,8 +161,6 @@ export default function HomePage() {
           </Card>
         </div>
       </main>
-      <footer className="mt-12 text-center text-sm text-muted-foreground">
-      </footer>
     </div>
   );
 }
