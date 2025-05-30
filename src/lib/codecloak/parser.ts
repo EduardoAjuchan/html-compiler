@@ -22,12 +22,13 @@ export function compile(customHtml: string): { result: string | null; error: str
     while(currentIndex < customHtml.length) {
       const currentPos = getLineAndColumn(customHtml, currentIndex);
 
-      // Regex para etiquetas de apertura: #tagName attributes$ O #tagName attributes /$
+      // Regex para etiquetas de apertura:
       // Grupo 1: tagName
       // Grupo 2: attributesCapture (non-greedy)
-      // Grupo 3: slashPortion (e.g., " / " o "/" o undefined) - si la etiqueta termina en "/$"
-      // Grupo 4: dollarOnlyPortion (e.g., "$" o undefined) - si la etiqueta termina solo en "$"
-      const openTagRegex = /^#([a-zA-Z0-9_:-]+)((?:[^$"]*(?:"[^"]*"[^$"]*)*)*?)(?:(\s*\/\s*)\$|(\$))$/;
+      // Grupo 3: slashPortion (captura la barra y espacios si termina en "/$")
+      // Grupo 4: dollarOnlyPortion (captura solo "$" si termina así)
+      const openTagRegex = /^#([a-zA-Z0-9_:-]+)((?:[^$"]*(?:"[^"]*"[^$"]*)*)*?)(?:(\s*\/\s*)\$|(\$))/;
+      const openTagMatch = customHtml.substring(currentIndex).match(openTagRegex); // <<< CORRECCIÓN AQUÍ
       const closeTagMatch = customHtml.substring(currentIndex).match(/^#\/([a-zA-Z0-9_:-]+)\$/);
 
       if (openTagMatch) {
@@ -38,10 +39,9 @@ export function compile(customHtml: string): { result: string | null; error: str
         
         if (actualSlash === '/') {
             let problematicSlashIndex = tagName.length + 1; // After #
-            if (attributesCapture) { // attributesCapture is the raw string from regex, might have leading/trailing spaces
+            if (attributesCapture) {
                 problematicSlashIndex += attributesCapture.length;
             }
-            // slashPortion includes spaces around the slash, find the slash itself
             if (slashPortion) {
                  problematicSlashIndex += slashPortion.indexOf('/');
             }
