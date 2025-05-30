@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Codecloak',
-  description: 'Compile, decompile, encrypt, and decrypt code snippets with a custom HTML-like syntax.',
+  description: 'Compila, decompila, encripta y desencripta fragmentos de código con una sintaxis personalizada similar a HTML.',
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark"> {/* Ensure dark theme is applied */}
+    <html lang="es" className="dark"> {/* Ensure dark theme is applied */}
       <body className={`${geistSans.variable} ${geistMono.variable} font-mono antialiased`}>
         {children}
         <Toaster />

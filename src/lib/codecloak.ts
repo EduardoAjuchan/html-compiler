@@ -25,54 +25,11 @@ export function decrypt(encryptedText: string): string {
 }
 
 export function compile(customHtml: string): { result: string | null; error: string | null } {
-  let html = customHtml;
   const tagStack: string[] = [];
-  const tagRegex = /#([a-zA-Z0-9_:-]+)([^$]*?)\$|#\/([a-zA-Z0-9_:-]+)\$/g;
-  let resultHtml = "";
-  let lastIndex = 0;
+  let processedHtml = "";
+  let currentIndex = 0;
 
-  // Custom regex-based parser, simpler than full AST but handles basic cases
-  html = html.replace(tagRegex, (match, openTagName, attributes, closeTagName, offset) => {
-    resultHtml += customHtml.substring(lastIndex, offset);
-    lastIndex = offset + match.length;
-
-    if (openTagName) {
-      const tagName = openTagName.trim();
-      tagStack.push(tagName);
-      return `<${tagName}${attributes || ''}>`;
-    } else if (closeTagName) {
-      const tagName = closeTagName.trim();
-      if (tagStack.length === 0 || tagStack[tagStack.length - 1] !== tagName) {
-        throw new Error(`Mismatched closing tag: Expected #${tagStack[tagStack.length - 1]}$ but found ${match}`);
-      }
-      tagStack.pop();
-      return `</${tagName}>`;
-    }
-    return match; // Should not happen
-  });
-
-  resultHtml += customHtml.substring(lastIndex);
-
-
-  if (tagStack.length > 0) {
-    return { result: null, error: `Unclosed tags: ${tagStack.join(', ')}` };
-  }
-
-  // A simpler iterative replace for basic well-formed structures.
-  // This is a fallback or alternative if the regex above is too complex or buggy for initial implementation.
-  // For the prompt, a more robust stack-based checking is preferred.
-  // The regex based replacement with stack checking is implemented above.
-  
-  // For the sake of this exercise, this iterative replacement strategy can be error-prone for complex cases.
-  // A proper parser or more sophisticated regex with state management (like the one above) would be better.
-  // Let's refine the regex based approach.
-
-  // The issue with a single regex replace is handling nesting and validation correctly.
-  // A true parser would iterate and build a tree or directly output.
-  // For simplicity with error checking:
   try {
-    let processedHtml = "";
-    let currentIndex = 0;
     while(currentIndex < customHtml.length) {
       const openTagMatch = customHtml.substring(currentIndex).match(/^#([a-zA-Z0-9_:-]+)([^$]*?)\$/);
       const closeTagMatch = customHtml.substring(currentIndex).match(/^#\/([a-zA-Z0-9_:-]+)\$/);
@@ -85,7 +42,8 @@ export function compile(customHtml: string): { result: string | null; error: str
       } else if (closeTagMatch) {
         const [fullMatch, tagName] = closeTagMatch;
         if (tagStack.length === 0 || tagStack[tagStack.length - 1] !== tagName) {
-          return { result: null, error: `Mismatched closing tag: Expected #${tagStack.pop()}$ but found ${fullMatch}` };
+          const expectedTag = tagStack.length > 0 ? tagStack[tagStack.length - 1] : "ninguna (pila vacía)";
+          return { result: null, error: `Error de compilación: Etiqueta de cierre no coincidente. Se esperaba '#/${expectedTag}$' pero se encontró '${fullMatch}'.` };
         }
         tagStack.pop();
         processedHtml += `</${tagName}>`;
@@ -95,13 +53,16 @@ export function compile(customHtml: string): { result: string | null; error: str
         currentIndex++;
       }
     }
+
     if (tagStack.length > 0) {
-      return { result: null, error: `Unclosed tags: ${tagStack.join(', ')}` };
+      // Create a unique list of unclosed tags for the error message
+      const uniqueUnclosedTags = [...new Set(tagStack)];
+      return { result: null, error: `Error de compilación: Etiquetas sin cerrar: #${uniqueUnclosedTags.join(', #')}` };
     }
     return { result: processedHtml, error: null };
 
   } catch (e: any) {
-    return { result: null, error: e.message };
+    return { result: null, error: `Error de compilación inesperado: ${e.message}` };
   }
 }
 

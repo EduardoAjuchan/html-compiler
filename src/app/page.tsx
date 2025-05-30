@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -16,47 +17,47 @@ export default function HomePage() {
 
   const handleCompile = () => {
     if (!customHtml.trim()) {
-      toast({ title: "Input Missing", description: "Please enter custom HTML to compile.", variant: "destructive" });
+      toast({ title: "Entrada Faltante", description: "Por favor, ingresa HTML personalizado para compilar.", variant: "destructive" });
       return;
     }
     const { result, error } = compile(customHtml);
     if (error) {
-      toast({ title: "Compilation Error", description: error, variant: "destructive" });
+      toast({ title: "Error de Compilación", description: error, variant: "destructive" });
       setStandardHtml('');
     } else if (result !== null) {
       setStandardHtml(result);
-      toast({ title: "Success", description: "Custom HTML compiled to Standard HTML." });
+      toast({ title: "Éxito", description: "HTML personalizado compilado a HTML Estándar." });
     }
   };
 
   const handleDecompile = () => {
     if (!standardHtml.trim()) {
-      toast({ title: "Input Missing", description: "Please enter standard HTML to decompile.", variant: "destructive" });
+      toast({ title: "Entrada Faltante", description: "Por favor, ingresa HTML estándar para decompilar.", variant: "destructive" });
       return;
     }
     const result = decompile(standardHtml);
     setCustomHtml(result);
-    toast({ title: "Success", description: "Standard HTML decompiled to Custom HTML." });
+    toast({ title: "Éxito", description: "HTML estándar decompilado a HTML Personalizado." });
   };
 
   const handleEncrypt = () => {
     if (!customHtml.trim()) {
-      toast({ title: "Input Missing", description: "Please enter custom HTML to encrypt.", variant: "destructive" });
+      toast({ title: "Entrada Faltante", description: "Por favor, ingresa HTML personalizado para encriptar.", variant: "destructive" });
       return;
     }
     const result = encrypt(customHtml);
     setEncryptedText(result);
-    toast({ title: "Success", description: "Custom HTML encrypted." });
+    toast({ title: "Éxito", description: "HTML personalizado encriptado." });
   };
 
   const handleDecrypt = () => {
     if (!encryptedText.trim()) {
-      toast({ title: "Input Missing", description: "Please enter encrypted text to decrypt.", variant: "destructive" });
+      toast({ title: "Entrada Faltante", description: "Por favor, ingresa texto encriptado para desencriptar.", variant: "destructive" });
       return;
     }
     const result = decrypt(encryptedText);
-    setCustomHtml(result); // Decrypted text goes back to custom HTML area
-    toast({ title: "Success", description: "Text decrypted to Custom HTML." });
+    setCustomHtml(result); // El texto desencriptado vuelve al área de HTML personalizado
+    toast({ title: "Éxito", description: "Texto desencriptado a HTML Personalizado." });
   };
 
   return (
@@ -67,63 +68,63 @@ export default function HomePage() {
           Codecloak
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Transform, secure, and manage your code snippets with ease.
+          Transforma, asegura y gestiona tus fragmentos de código con facilidad.
         </p>
       </header>
 
       <main className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left Column: Custom HTML Input and its direct transformations */}
+        {/* Columna Izquierda: Entrada de HTML Personalizado y sus transformaciones directas */}
         <div className="flex flex-col gap-6">
           <Card className="shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center text-xl">
                 <Shuffle className="w-6 h-6 mr-2 text-primary" />
-                Custom HTML-like Syntax
+                Sintaxis Personalizada tipo HTML
               </CardTitle>
-              <CardDescription>Enter your custom syntax code here (e.g., #div$ #p$Hello#/p$ #/div$).</CardDescription>
+              <CardDescription>Ingresa tu código de sintaxis personalizada aquí (ej., #div$ #p$Hola#/p$ #/div$).</CardDescription>
             </CardHeader>
             <CardContent>
               <Textarea
                 value={customHtml}
                 onChange={(e) => setCustomHtml(e.target.value)}
-                placeholder={`#div class="container"$\n  #h1$Welcome to Codecloak!#/h1$\n  #p$Start typing your custom code...#/p$\n#/div$`}
+                placeholder={`#div class="container"$\n  #h1$¡Bienvenido a Codecloak!#/h1$\n  #p$Comienza a escribir tu código personalizado...#/p$\n#/div$`}
                 className="h-60 resize-none bg-input border-border focus:ring-accent"
-                aria-label="Custom HTML-like Syntax Input"
+                aria-label="Entrada de Sintaxis Personalizada tipo HTML"
               />
             </CardContent>
             <CardFooter className="flex flex-col sm:flex-row gap-2 justify-end">
               <Button onClick={handleCompile} variant="outline" className="w-full sm:w-auto group hover:bg-accent hover:text-accent-foreground transition-colors">
-                <Code className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Compile to HTML
+                <Code className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Compilar a HTML
               </Button>
               <Button onClick={handleEncrypt} variant="outline" className="w-full sm:w-auto group hover:bg-accent hover:text-accent-foreground transition-colors">
-                <LockKeyhole className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Encrypt Code
+                <LockKeyhole className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Encriptar Código
               </Button>
             </CardFooter>
           </Card>
         </div>
 
-        {/* Right Column: Standard HTML and Encrypted Text areas */}
+        {/* Columna Derecha: Áreas de HTML Estándar y Texto Encriptado */}
         <div className="flex flex-col gap-6">
           <Card className="shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center text-xl">
                 <Code className="w-6 h-6 mr-2 text-primary" />
-                Standard HTML
+                HTML Estándar
               </CardTitle>
-              <CardDescription>View compiled HTML or input HTML to decompile.</CardDescription>
+              <CardDescription>Visualiza HTML compilado o ingresa HTML para decompilar.</CardDescription>
             </CardHeader>
             <CardContent>
               <Textarea
                 value={standardHtml}
                 onChange={(e) => setStandardHtml(e.target.value)}
-                placeholder={`<div class="container">\n  <h1>Welcome to Codecloak!</h1>\n  <p>Start typing your custom code...</p>\n</div>`}
+                placeholder={`<div class="container">\n  <h1>¡Bienvenido a Codecloak!</h1>\n  <p>Comienza a escribir tu código personalizado...</p>\n</div>`}
                 className="h-40 resize-none bg-input border-border focus:ring-accent"
-                aria-label="Standard HTML Output/Input"
+                aria-label="Salida/Entrada de HTML Estándar"
               />
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button onClick={handleDecompile} variant="outline" className="group hover:bg-accent hover:text-accent-foreground transition-colors">
-                <ArrowLeftRight className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Decompile to Custom
+                <ArrowLeftRight className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Decompilar a Personalizado
               </Button>
             </CardFooter>
           </Card>
@@ -132,30 +133,30 @@ export default function HomePage() {
             <CardHeader>
               <CardTitle className="flex items-center text-xl">
                 <LockKeyhole className="w-6 h-6 mr-2 text-primary" />
-                Encrypted / Decrypted Zone
+                Zona Encriptada / Desencriptada
               </CardTitle>
-              <CardDescription>View encrypted code or input code to decrypt.</CardDescription>
+              <CardDescription>Visualiza código encriptado o ingresa código para desencriptar.</CardDescription>
             </CardHeader>
             <CardContent>
               <Textarea
                 value={encryptedText}
                 onChange={(e) => setEncryptedText(e.target.value)}
-                placeholder="Encrypted text will appear here..."
+                placeholder="El texto encriptado aparecerá aquí..."
                 className="h-40 resize-none bg-input border-border focus:ring-accent"
-                aria-label="Encrypted/Decrypted Text Output/Input"
+                aria-label="Salida/Entrada de Texto Encriptado/Desencriptado"
               />
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button onClick={handleDecrypt} variant="outline" className="group hover:bg-accent hover:text-accent-foreground transition-colors">
-                <UnlockKeyhole className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Decrypt Code
+                <UnlockKeyhole className="w-5 h-5 mr-2 group-hover:animate-pulse" /> Desencriptar Código
               </Button>
             </CardFooter>
           </Card>
         </div>
       </main>
       <footer className="mt-12 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Codecloak. All rights reserved.</p>
-        <p>Secure your snippets with a touch of magic.</p>
+        <p>&copy; {new Date().getFullYear()} Codecloak. Todos los derechos reservados.</p>
+        <p>Asegura tus fragmentos con un toque de magia.</p>
       </footer>
     </div>
   );
