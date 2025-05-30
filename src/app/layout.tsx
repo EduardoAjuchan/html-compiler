@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Codecloak',
-  description: 'Compila, decompila, encripta y desencripta fragmentos de código con una sintaxis personalizada similar a HTML.',
+  title: 'Proyecto Final',
+  description: 'Herramienta para compilar, decompilar, encriptar y desencriptar fragmentos de código con una sintaxis personalizada.',
 };
 
 export default function RootLayout({

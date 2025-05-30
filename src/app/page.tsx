@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { compile, decompile, encrypt, decrypt } from '@/lib/codecloak';
+import { compile, decompile, encrypt, decrypt } from '@/lib'; // Import path updated
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeftRight, Code, LockKeyhole, UnlockKeyhole, Shuffle } from 'lucide-react';
 
@@ -56,7 +56,7 @@ export default function HomePage() {
       return;
     }
     const result = decrypt(encryptedText);
-    setCustomHtml(result);
+    setCustomHtml(result); // Ensure this updates the customHtml field
     toast({ title: "Éxito", description: "Texto desencriptado a HTML Personalizado." });
   };
 
@@ -79,7 +79,7 @@ export default function HomePage() {
               <Textarea
                 value={customHtml}
                 onChange={(e) => setCustomHtml(e.target.value)}
-                placeholder={`#div class="container"$\n  #h1$¡Bienvenido a Codecloak!#/h1$\n  #p$Comienza a escribir tu código personalizado...#/p$\n#/div$`}
+                placeholder={`#div class="container"$\n  #h1$¡Bienvenido!#/h1$\n  #p$Comienza a escribir tu código personalizado...#/p$\n#/div$`}
                 className="h-60 resize-none bg-input border-border focus:ring-accent"
                 aria-label="Entrada de Sintaxis Personalizada tipo HTML"
               />
@@ -109,7 +109,7 @@ export default function HomePage() {
               <Textarea
                 value={standardHtml}
                 onChange={(e) => setStandardHtml(e.target.value)}
-                placeholder={`<div class="container">\n  <h1>¡Bienvenido a Codecloak!</h1>\n  <p>Comienza a escribir tu código personalizado...</p>\n</div>`}
+                placeholder={`<div class="container">\n  <h1>¡Bienvenido!</h1>\n  <p>Comienza a escribir tu código personalizado...</p>\n</div>`}
                 className="h-40 resize-none bg-input border-border focus:ring-accent"
                 aria-label="Salida/Entrada de HTML Estándar"
               />
