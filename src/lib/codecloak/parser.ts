@@ -19,9 +19,10 @@ export function compile(customHtml: string): { result: string | null; error: str
   let currentIndex = 0;
 
   // Regex for tags ending with /$, e.g., #tag attr="val" /$
-  const openTagWithSlashEndRegex = /^#([a-zA-Z0-9_:-]+)((?:[^$"]*(?:"[^"]*"[^$"]*)*)*?)(\s*\/\s*)\$$/;
+  // Attribute part ([^$]*?) non-greedily matches anything not a $
+  const openTagWithSlashEndRegex = /^#([a-zA-Z0-9_:-]+)([^$]*?)(\s*\/\s*)\$$/;
   // Regex for tags ending with just $, e.g., #tag attr="val"$
-  const openTagWithDollarEndRegex = /^#([a-zA-Z0-9_:-]+)((?:[^$"]*(?:"[^"]*"[^$"]*)*)*?)\$$/;
+  const openTagWithDollarEndRegex = /^#([a-zA-Z0-9_:-]+)([^$]*?)\$$/;
 
 
   try {
@@ -37,14 +38,14 @@ export function compile(customHtml: string): { result: string | null; error: str
       let matchedSlashPortion: string | undefined = undefined;
 
 
-      // First, try matching the pattern for tags ending with /S
+      // First, try matching the pattern for tags ending with /$
       let tempMatch = remainingCustomHtml.match(openTagWithSlashEndRegex);
       if (tempMatch) {
         openTagMatch = tempMatch;
         isSlashEnding = true;
         tagName = openTagMatch[1];
-        attributesCapture = openTagMatch[2];
-        matchedSlashPortion = openTagMatch[3]; // The captured slash and surrounding spaces
+        attributesCapture = openTagMatch[2]; // Raw attributes, possibly with leading/trailing spaces if not captured by slash
+        matchedSlashPortion = openTagMatch[3]; 
         fullMatchLength = openTagMatch[0].length;
       } else {
         // If not, try matching the pattern for tags ending with just $
@@ -52,29 +53,36 @@ export function compile(customHtml: string): { result: string | null; error: str
         if (tempMatch) {
           openTagMatch = tempMatch;
           isSlashEnding = false;
-          tagName = openTagMatch[1];
-          attributesCapture = openTagMatch[2];
+          tagName = tempMatch[1];
+          attributesCapture = tempMatch[2]; // Raw attributes
           // matchedSlashPortion remains undefined
-          fullMatchLength = openTagMatch[0].length;
+          fullMatchLength = tempMatch[0].length;
         }
       }
       
       const closeTagMatch = remainingCustomHtml.match(/^#\/([a-zA-Z0-9_:-]+)\$/);
 
-      if (openTagMatch && tagName && attributesCapture !== undefined) { // Check if openTagMatch is not null and tagName/attributesCapture are defined
+      if (openTagMatch && tagName && attributesCapture !== undefined) {
         const attributesString = (attributesCapture || "").trim();
 
         if (isSlashEnding && matchedSlashPortion) {
             // Calculate position of the erroneous slash
             let slashErrorColumn = currentPos.column + tagName.length + 1; // After #tag_name
-            if (attributesCapture) { // attributesCapture here is clean
-                slashErrorColumn += attributesCapture.length;
+            if (attributesCapture) { 
+                slashErrorColumn += attributesCapture.indexOf(attributesString); // to account for original spacing
+                slashErrorColumn += attributesString.length;
             }
-            slashErrorColumn += matchedSlashPortion.indexOf('/'); // position of / within the matchedSlashPortion " / "
+            // Ensure matchedSlashPortion is not just whitespace if attributes are empty
+            const slashIndexInPortion = matchedSlashPortion.indexOf('/');
+            if (slashIndexInPortion !== -1) {
+                 slashErrorColumn += slashIndexInPortion;
+            } else {
+                 slashErrorColumn += matchedSlashPortion.length; // Point to end of spaces if slash not found (edge case)
+            }
+
             return { result: null, error: `(Línea ${currentPos.line}, Columna ${slashErrorColumn}): Error de sintaxis: Carácter '/' inesperado antes del cierre '$' de la etiqueta de apertura '${tagName}'. La sintaxis personalizada no usa '/' para auto-cierre en etiquetas de apertura.` };
         }
         
-        // Validaciones de atributos solo si attributesString no está vacío
         if (attributesString) { 
             if (attributesString.includes("='")) {
                 const errorIndexInAttributes = attributesString.indexOf("='");
@@ -91,21 +99,19 @@ export function compile(customHtml: string): { result: string | null; error: str
                 }
                 const attrName = attributeNameMatch[0];
 
-                if (segment.includes("=")) { // Attribute with value
+                if (segment.includes("=")) { 
                     const valuePartMatch = segment.match(/=(.*)/);
-                    // Check if value exists, starts with " and ends with "
                     if (!valuePartMatch || !valuePartMatch[1] || !valuePartMatch[1].startsWith('"') || !valuePartMatch[1].endsWith('"')) {
                         const errorIndexInSegment = segment.indexOf('=') +1;
                         const errorIndexInAttributes = attributesString.indexOf(segment) + errorIndexInSegment;
                         return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: El valor para '${attrName}' debe estar entre comillas dobles (ej: ${attrName}="valor") en '${segment.substring(0, Math.min(segment.length, 30))}...'.` };
                     }
-                    // Check for unescaped double quotes within the value
                     if (valuePartMatch[1].length > 1 && valuePartMatch[1].substring(1, valuePartMatch[1].length - 1).includes('"')) {
                          const errorIndexInSegment = segment.indexOf('=') + 1 + valuePartMatch[1].substring(1).indexOf('"') + 1;
                          const errorIndexInAttributes = attributesString.indexOf(segment) + errorIndexInSegment;
                          return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Comillas dobles no escapadas dentro del valor del atributo '${attrName}' en '${segment.substring(0, Math.min(segment.length, 30))}...'.` };
                     }
-                } else { // Boolean attribute (no value)
+                } else { 
                     if (attrName !== segment) { 
                         const errorIndexInAttributes = attributesString.indexOf(segment) + attrName.length;
                          return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + tagName.length + 1 + (attributesCapture || "").indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Caracteres inesperados después del nombre de atributo booleano '${attrName}' en '${segment.substring(0, Math.min(segment.length, 30))}...'.`};
@@ -135,7 +141,7 @@ export function compile(customHtml: string): { result: string | null; error: str
             const potentialOpenTagStart = remainingCustomHtml.match(/^#([a-zA-Z0-9_:-]+)/);
             const potentialCloseTagStart = remainingCustomHtml.match(/^#\/([a-zA-Z0-9_:-]+)/);
             
-            if (potentialOpenTagStart && !remainingCustomHtml.substring(potentialOpenTagStart[0].length).trim().startsWith('$') && !openTagMatch) { // !openTagMatch ensures we didn't just fail a valid structure
+            if (potentialOpenTagStart && !remainingCustomHtml.substring(potentialOpenTagStart[0].length).trim().startsWith('$') && !openTagMatch) { 
                  return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column}): Error de sintaxis: Etiqueta de apertura mal formada. Posiblemente falta '$' al final o los atributos son incorrectos en '${potentialTagPortion}...'.` };
             }
             if (potentialCloseTagStart && !remainingCustomHtml.substring(potentialCloseTagStart[0].length).trim().startsWith('$') && !closeTagMatch) {
@@ -162,5 +168,3 @@ export function compile(customHtml: string): { result: string | null; error: str
     return { result: null, error: `(Línea ${errorPos.line}, Columna ${errorPos.column}): Error de compilación inesperado: ${e.message}` };
   }
 }
-
-    
