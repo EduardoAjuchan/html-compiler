@@ -22,38 +22,36 @@ export function compile(customHtml: string): { result: string | null; error: str
     while(currentIndex < customHtml.length) {
       const currentPos = getLineAndColumn(customHtml, currentIndex);
 
-      // Regex para etiquetas de apertura: #tagName attributes$
+      // Regex para etiquetas de apertura: #tagName attributes$ O #tagName attributes /$
       // Grupo 1: tagName
       // Grupo 2: attributesCapture (non-greedy)
-      // Grupo 3: slashWithSpacesCapture (e.g., " / ") - opcional
-      // Grupo 4: actualSlash (e.g., "/") - capturado dentro del grupo 3, opcional
-      const openTagRegex = /^#([a-zA-Z0-9_:-]+)((?:[^$"]*(?:"[^"]*"[^$"]*)*)*?)(\s*(\/)\s*)?\$/;
-      const openTagMatch = customHtml.substring(currentIndex).match(openTagRegex);
-      
+      // Grupo 3: slashPortion (e.g., " / " o "/" o undefined) - si la etiqueta termina en "/$"
+      // Grupo 4: dollarOnlyPortion (e.g., "$" o undefined) - si la etiqueta termina solo en "$"
+      const openTagRegex = /^#([a-zA-Z0-9_:-]+)((?:[^$"]*(?:"[^"]*"[^$"]*)*)*?)(?:(\s*\/\s*)\$|(\$))$/;
       const closeTagMatch = customHtml.substring(currentIndex).match(/^#\/([a-zA-Z0-9_:-]+)\$/);
 
       if (openTagMatch) {
-        const [fullMatch, tagName, attributesCapture, slashWithSpacesCapture, actualSlash] = openTagMatch;
+        const [fullMatch, tagName, attributesCapture, slashPortion /* group 3 */, dollarOnlyPortion /* group 4 */] = openTagMatch;
         
-        if (actualSlash === '/') { // Verifica la barra capturada explícitamente
-            let problematicSlashIndex = -1;
-            // Calcular el índice de la barra '/' dentro del fullMatch.
-            // Es la longitud del nombre de la etiqueta + 1 (por '#') + longitud de atributos capturados + índice de '/' en slashWithSpacesCapture.
-            problematicSlashIndex = tagName.length + 1;
-            if (attributesCapture) {
+        const actualSlash = slashPortion ? '/' : undefined; // Detecta si el grupo 3 (con la barra) tuvo éxito
+        const attributesString = (attributesCapture || "").trim();
+        
+        if (actualSlash === '/') {
+            let problematicSlashIndex = tagName.length + 1; // After #
+            if (attributesCapture) { // attributesCapture is the raw string from regex, might have leading/trailing spaces
                 problematicSlashIndex += attributesCapture.length;
             }
-            if (slashWithSpacesCapture) { // Debe estar presente si actualSlash lo está
-                problematicSlashIndex += slashWithSpacesCapture.indexOf('/');
+            // slashPortion includes spaces around the slash, find the slash itself
+            if (slashPortion) {
+                 problematicSlashIndex += slashPortion.indexOf('/');
             }
 
             const errorColumn = currentPos.column + problematicSlashIndex;
             return { result: null, error: `(Línea ${currentPos.line}, Columna ${errorColumn}): Error de sintaxis: Carácter '/' inesperado antes del cierre '$' de la etiqueta de apertura '${tagName}'. La sintaxis personalizada no usa '/' para auto-cierre en etiquetas de apertura.` };
         }
-
-        const attributesString = (attributesCapture || "").trim();
         
-        if (attributesString) { // Validaciones de atributos solo si attributesString no está vacío
+        // Validaciones de atributos solo si attributesString no está vacío
+        if (attributesString) { 
             if (attributesString.includes("='")) {
                 const errorIndexInAttributes = attributesString.indexOf("='");
                 return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + fullMatch.indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Se encontraron comillas simples. Utiliza comillas dobles para los valores de atributos (ej: nombre="valor") en '${attributesString.substring(0, Math.min(attributesString.length, 30))}...'.` };
@@ -71,30 +69,23 @@ export function compile(customHtml: string): { result: string | null; error: str
 
                 if (segment.includes("=")) { // Attribute with value
                     const valuePartMatch = segment.match(/=(.*)/);
-                    // Verifica que el valor (valuePartMatch[1]) exista, comience y termine con comillas dobles.
                     if (!valuePartMatch || !valuePartMatch[1] || !valuePartMatch[1].startsWith('"') || !valuePartMatch[1].endsWith('"')) {
                         const errorIndexInSegment = segment.indexOf('=') +1;
                         const errorIndexInAttributes = attributesString.indexOf(segment) + errorIndexInSegment;
                         return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + fullMatch.indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: El valor para '${attrName}' debe estar entre comillas dobles (ej: ${attrName}="valor") en '${segment.substring(0, Math.min(segment.length, 30))}...'.` };
                     }
-                    // Verifica comillas dobles no escapadas dentro del valor.
                     if (valuePartMatch[1].length > 1 && valuePartMatch[1].substring(1, valuePartMatch[1].length - 1).includes('"')) {
                          const errorIndexInSegment = segment.indexOf('=') + 1 + valuePartMatch[1].substring(1).indexOf('"') + 1;
                          const errorIndexInAttributes = attributesString.indexOf(segment) + errorIndexInSegment;
                          return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + fullMatch.indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Comillas dobles no escapadas dentro del valor del atributo '${attrName}' en '${segment.substring(0, Math.min(segment.length, 30))}...'.` };
                     }
                 } else { // Boolean attribute (no value)
-                    if (attrName !== segment) { // Ensure no extra characters after boolean attribute name
+                    if (attrName !== segment) { 
                         const errorIndexInAttributes = attributesString.indexOf(segment) + attrName.length;
                          return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + fullMatch.indexOf(attributesString) + errorIndexInAttributes}): Error de sintaxis en atributos: Caracteres inesperados después del nombre de atributo booleano '${attrName}' en '${segment.substring(0, Math.min(segment.length, 30))}...'.`};
                     }
                 }
             }
-            // Esta validación general de atributos puede ser redundante o necesitar ajuste si las anteriores son exhaustivas.
-            // const validAttributesPattern = /^\s*([a-zA-Z0-9_:-]+(\s*=\s*"[^"]*")?\s*)*$/;
-            // if (!validAttributesPattern.test(attributesString)) {
-            //     return { result: null, error: `(Línea ${currentPos.line}, Columna ${currentPos.column + fullMatch.indexOf(attributesString)}): Error de sintaxis: Atributos mal formados en la etiqueta '${fullMatch.substring(0, Math.min(fullMatch.length, 50))}...'. Formato esperado: nombre, nombre="valor", separados por espacios.` };
-            // }
         }
 
         processedHtml += `<${tagName}${attributesString.length > 0 ? ' ' + attributesString : ''}>`;
