@@ -147,8 +147,7 @@ export default function HomePage() {
         </div>
       </main>
       <footer className="mt-12 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Codecloak. Todos los derechos reservados.</p>
-        <p>Asegura tus fragmentos con un toque de magia.</p>
+        {/* Contenido del footer eliminado */}
       </footer>
     </div>
   );
